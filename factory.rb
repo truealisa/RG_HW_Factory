@@ -63,9 +63,43 @@ class Factory
     @table.values.values_at(*select)
   end
 
-  def dig(*keys)
-    @table.dig(*keys)
+  def inspect
+    str = "#<factory #{self.class} "
+    @table.each do |key, value| 
+      str += "#{key.to_s}=\"#{value}\" " 
+    end
+    str = str.chomp(" ") + '>'
   end
+  alias_method :to_s, :inspect
+
+  def select(&block)
+    @table.values.select(&block)
+  end
+
+  def each_pair(&block)
+    if block_given?
+      @table.each_pair(&block)
+    else
+      to_enum
+    end
+  end
+
+  # def(:[])
+  # end
+
+  # def(:[]=)
+  # end
+
+  # def hash
+  # end
+
+  # def eql?(other)
+  # end
+  # alias_method ==, :eql?
+
+  # def dig(*keys)
+  #   @table.dig(*keys)
+  # end
 end
 
 try = Factory.new(:name, :age)
@@ -73,14 +107,13 @@ puts try.class
 puts Factory.new("Name", :name, :age, :size)
 puts Struct.new("Name", :name, :age, :size)
 puts
-puts Factory::Name.new("Vvv", 12, 3).values
+puts Factory::Name.new("Vvv", 12, 3).hash
+puts Factory::Name.new("Vvv", 12, 3).hash
 puts
-puts Struct::Name.new("Vvv", 12, 3).values
+puts Struct::Name.new("Vvv", 12, 3).hash
+puts Struct::Name.new("Vvv", 12, 3).hash
 
 # Struct.new('new', :ds)
 puts
 puts (Struct.instance_methods(false) - Factory.instance_methods(false)).size
 puts (Struct.instance_methods(false) - Factory.instance_methods(false)).inspect
-
-puts f.dig(:a, :a, :b, 0)    # => 1
-puts f.dig(:b, 0)            # => nil
