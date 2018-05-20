@@ -11,9 +11,8 @@ class Factory
         raise NameError, "identifier #{key_args.first} needs to be constant"
       end
       @name = key_args.shift
-      # @@params = args
     end
-      
+    
     subclass = Class.new(self) do 
       class << self
         define_method :new do |*args|
@@ -22,13 +21,19 @@ class Factory
           instance
         end
       end
-
+      
       define_method :initialize do |*args|
-        if args.size > key_args.size
+        @params = key_args
+        if args.size > @params.size
           raise ArgumentError, 'factory size differs'
         end
-        @table = key_args.map(&:to_sym).zip(args).to_h
+        @table = @params.map(&:to_sym).zip(args).to_h
+        @table.each_pair do |key, value|
+          instance_variable_set("@#{key}", value)
+          self.class.instance_eval { attr_accessor key.to_sym }
+        end
       end
+      class_eval(&block) if block_given?
     end
     @name ? Factory.const_set(@name, subclass) : subclass
   end
@@ -66,7 +71,7 @@ class Factory
   def inspect
     str = "#<factory #{self.class} "
     @table.each do |key, value| 
-      str += "#{key.to_s}=\"#{value}\" " 
+      str += "#{key.to_s}=#{value.inspect} " 
     end
     str = str.chomp(" ") + '>'
   end
@@ -84,36 +89,52 @@ class Factory
     end
   end
 
-  # def(:[])
-  # end
+  def [](key)
+    if key.is_a?(Numeric) 
+      if @table.values[key]
+        @table.values[key]
+      else
+        raise IndexError, "offset #{key} too large for factory(size:#{@table.size})"
+      end
+    else
+      if @table[key.to_sym] 
+        @table[key.to_sym]
+      else
+        raise NameError, "no member '#{key}' in factory"
+      end
+    end
+  end
 
-  # def(:[]=)
-  # end
+  def []=(key, value)
+    if key.is_a?(Numeric) 
+      if @table.keys.length > key
+        @table[@table.keys[key]] = value
+      else
+        raise IndexError, "offset #{key} too large for factory(size:#{@table.size})"
+      end
+    else
+      if @table[key.to_sym] 
+        @table[key.to_sym] = value
+      else
+        raise NameError, "no member '#{key}' in factory"
+      end
+    end
+  end
 
-  # def hash
-  # end
+  def hash
+    arr = [self.class] + self.to_a
+    arr.hash
+  end
 
-  # def eql?(other)
-  # end
-  # alias_method ==, :eql?
+  def eql?(other)
+    self.hash == other.hash
+  end
+  
+  def ==(other)
+    self.class == other.class && self.to_a == other.to_a ? true : false
+  end
 
-  # def dig(*keys)
-  #   @table.dig(*keys)
-  # end
+  def dig(*keys)
+    @table.dig(*keys)
+  end
 end
-
-try = Factory.new(:name, :age)
-puts try.class
-puts Factory.new("Name", :name, :age, :size)
-puts Struct.new("Name", :name, :age, :size)
-puts
-puts Factory::Name.new("Vvv", 12, 3).hash
-puts Factory::Name.new("Vvv", 12, 3).hash
-puts
-puts Struct::Name.new("Vvv", 12, 3).hash
-puts Struct::Name.new("Vvv", 12, 3).hash
-
-# Struct.new('new', :ds)
-puts
-puts (Struct.instance_methods(false) - Factory.instance_methods(false)).size
-puts (Struct.instance_methods(false) - Factory.instance_methods(false)).inspect
