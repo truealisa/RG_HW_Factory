@@ -24,10 +24,18 @@ class Factory
       
       define_method :initialize do |*args|
         @params = key_args
-        if args.size > @params.size
-          raise ArgumentError, 'factory size differs'
+        if keyword_init
+          unknown_keywords = @params - args[0].keys
+          if unknown_keywords.any?
+            raise ArgumentError, "unknown keywords: #{unknown_keywords.join(', ')}"
+          end
+          @table = args[0]
+        else
+          if args.size > @params.size
+            raise ArgumentError, 'factory size differs'
+          end
+          @table = @params.map(&:to_sym).zip(args).to_h
         end
-        @table = @params.map(&:to_sym).zip(args).to_h
         @table.each_pair do |key, value|
           instance_variable_set("@#{key}", value)
           self.class.instance_eval { attr_accessor key.to_sym }
